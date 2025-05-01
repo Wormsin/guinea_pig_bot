@@ -128,11 +128,11 @@ async def process_time(callback_query: types.CallbackQuery, state: FSMContext):
                                 message_id=callback_query.message.message_id,
                                 text=f"✅ Вы записаны на {full_datetime.strftime('%d.%m %H:%M')}\nСсылка на тест будет отправлена в назначенное время.")
     
-    #scheduler.add_job(send_test_link, 'date', run_date=full_datetime, args=[callback_query.from_user.id])
+    scheduler.add_job(send_test_link, 'date', run_date=full_datetime, args=[callback_query.from_user.id])
     
     '''test'''
-    test_run_time = datetime.now() + timedelta(seconds=10)
-    scheduler.add_job(send_test_link, 'date', run_date=test_run_time, args=[callback_query.from_user.id])
+    #test_run_time = datetime.now() + timedelta(seconds=10)
+    #scheduler.add_job(send_test_link, 'date', run_date=test_run_time, args=[callback_query.from_user.id])
     await state.finish()
 
 # ---------------------- Отправка ссылки на тест ----------------------
