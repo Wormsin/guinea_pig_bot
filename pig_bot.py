@@ -17,6 +17,7 @@ load_dotenv()
 API_TOKEN = os.getenv("API_TOKEN")
 CURATOR_ID = int(os.getenv("CURATOR_ID"))
 DATABASE_URL = os.getenv("DATABASE_URL")
+TEST_LINK = os.getenv("TEST_LINK")
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
@@ -53,7 +54,7 @@ async def cmd_start(message: types.Message):
 async def cmd_info(message: types.Message):
     await message.answer(
     "ℹ️ Это нейробиологическое исследование, направленное на изучение поведения в онлайн-среде.\n\n"
-    "📋 Вам предстоит пройти онлайн-тест продолжительностью около <b>1 часа</b>. Тест нужно проходить на <b>ПК или ноутбуке</b> — на телефонах он не работает корректно.\n\n"
+    "📋 Вам предстоит пройти онлайн-тест продолжительностью около <b>1 часа</b>. Тест нужно проходить на <b>ПК или ноутбуке</b> — на телефонах он не работает корректно. Нужно использовать <b>Windows и Chrome</b>\n\n"
     "🧠 В ходе теста будет использоваться <b>трекинг взгляда с помощью камеры</b> — в начале будет калибровка, чтобы всё работало корректно. Задания будут включать <b>поиск объектов, запоминание и другие простые когнитивные задачи</b>.\n\n"
     "❗Очень важно проходить тест <b>внимательно и без отвлечений</b>. Лучше выбрать <b>тихое место</b> и не слишком позднее время. Если вы отвлечётесь, тест может завершиться некорректно.\n\n"
     "😌 Не переживайте, если что-то не получилось или вы чувствовали себя «тупо» — это нормально! Мы <b>не оцениваем участников</b>, результаты <b>анонимны</b> и <b>не влияют на оплату</b>. Главное — пройти тест честно.\n\n"
@@ -91,6 +92,9 @@ async def process_phone(message: types.Message, state: FSMContext):
     await state.update_data(phone=message.text)
     markup = InlineKeyboardMarkup(row_width=2)
     today = datetime.now().date()
+    now = datetime.now()
+    if now.hour >= 20:
+        today += timedelta(days=1)
     for i in range(7):
         day = today + timedelta(days=i)
         button = InlineKeyboardButton(day.strftime('%d.%m (%a)'), callback_data=f"day_{day.isoformat()}")
@@ -103,9 +107,21 @@ async def process_day(callback_query: types.CallbackQuery, state: FSMContext):
     day_str = callback_query.data[4:]
     await state.update_data(selected_day=day_str)
     markup = InlineKeyboardMarkup(row_width=4)
+    
+    selected_date = datetime.fromisoformat(day_str).date()
+    now = datetime.now()
+    
     for hour in range(9, 21):
+        time_option = datetime.combine(selected_date, datetime.min.time()) + timedelta(hours=hour)
+        if selected_date == now.date() and time_option <= now:
+            continue  # Пропускаем уже прошедшие слоты
+        
         time_str = f"{hour:02}:00"
         markup.insert(InlineKeyboardButton(time_str, callback_data=f"time_{time_str}"))
+        
+    if now.hour < 20 and selected_date == now.date():
+        time_str = f"{now.hour:02}:{now.minute+1:02}"
+        markup.add(InlineKeyboardButton("🚀 Сейчас", callback_data=f"time_{time_str}"))
     await bot.edit_message_text(chat_id=callback_query.message.chat.id,
                                 message_id=callback_query.message.message_id,
                                 text=f"Вы выбрали {datetime.fromisoformat(day_str).strftime('%d.%m (%A)')}\nТеперь выберите время:",
@@ -138,7 +154,7 @@ async def process_time(callback_query: types.CallbackQuery, state: FSMContext):
 # ---------------------- Отправка ссылки на тест ----------------------
 async def send_test_link(user_id):
     markup = InlineKeyboardMarkup().add(InlineKeyboardButton("✅ Тест пройден", callback_data="test_done"))
-    await bot.send_message(user_id, "Вот ваша ссылка на тест: https://example.com/test. После теста сделайте скриншот финальной страницы, я попрошу отправить его в чат!", reply_markup=markup)
+    await bot.send_message(user_id, f"Вот ваша ссылка на тест: {TEST_LINK}. После теста сделайте скриншот финальной страницы, я попрошу отправить его в чат!\n\n Проходите тест в <b>Windows, в Chrome браузере.</b> Нужна <b>камера.</b>", parse_mode="HTML", reply_markup=markup)
 
 # ---------------------- Обработка кнопки ----------------------
 @dp.callback_query_handler(lambda c: c.data == 'test_done')
