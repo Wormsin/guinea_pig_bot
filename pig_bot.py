@@ -1,5 +1,5 @@
+import asyncio
 import asyncpg
-from aiohttp import web
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
@@ -209,24 +209,39 @@ async def on_startup(dp):
     db_pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
     scheduler.start()
 
+# ---------------------- Запуск бота via webhook----------------------
 
-WEBHOOK_PATH = f"/webhook"
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Например: https://your-bot.onrender.com/webhook
-WEBAPP_HOST = "0.0.0.0"
-WEBAPP_PORT = int(os.getenv("PORT", default=8000))  # Render сам передаёт PORT
+from aiogram import Bot, Dispatcher, types
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiohttp import web
+import asyncio
+import os
 
-async def on_startup_webhook(app):
+API_TOKEN = os.getenv("API_TOKEN")
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST") 
+WEBHOOK_PATH = '/webhook'
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot, storage=MemoryStorage())
+
+async def on_startup(app):
     await bot.set_webhook(WEBHOOK_URL)
-    scheduler.start()
 
 async def on_shutdown(app):
     await bot.delete_webhook()
 
-app = web.Application()
-app.router.add_post(WEBHOOK_PATH, dp.router)
 
-app.on_startup.append(on_startup_webhook)
+async def handle_request(request):
+    update = types.Update(**await request.json())
+    await dp.process_update(update)
+    return web.Response()
+
+# aiohttp-приложение
+app = web.Application()
+app.router.add_post(WEBHOOK_PATH, handle_request)
+app.on_startup.append(on_startup)
 app.on_shutdown.append(on_shutdown)
 
 if __name__ == '__main__':
-    web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT)
+    web.run_app(app, port=8000)
