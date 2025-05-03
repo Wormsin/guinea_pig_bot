@@ -25,19 +25,35 @@ CURATOR_ID = int(os.getenv("CURATOR_ID"))
 DATABASE_URL = os.getenv("DATABASE_URL")
 TEST_LINK = os.getenv("TEST_LINK")
 
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot, storage=MemoryStorage())
-scheduler = AsyncIOScheduler()
 
-db_pool = None  # глобальное соединение с БД
+bot = None
+dp = None
+db_pool = None
+scheduler = None
 
-# ---------------------- FSM Состояния ----------------------
-class Form(StatesGroup):
-    full_name = State()
-    phone = State()
-    choosing_day = State()
-    choosing_time = State()
-    
+
+async def on_startup(app):
+    global bot, dp, db_pool, scheduler
+
+    bot = Bot(token=os.getenv("API_TOKEN"))
+    dp = Dispatcher(bot, storage=MemoryStorage())
+
+    Bot.set_current(bot)
+    Dispatcher.set_current(dp)
+
+    db_pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
+
+    scheduler = AsyncIOScheduler()
+    scheduler.start()
+
+    await bot.set_webhook(WEBHOOK_URL)
+
+async def on_shutdown(app):
+    await bot.delete_webhook()
+    await bot.session.close()
+    if scheduler:
+        scheduler.shutdown()
+
 async def handle_request(request):
     Bot.set_current(bot)
     Dispatcher.set_current(dp)
@@ -45,6 +61,15 @@ async def handle_request(request):
     update = types.Update(**await request.json())
     await dp.process_update(update)
     return web.Response()
+
+# ---------------------- FSM Состояния ----------------------
+class Form(StatesGroup):
+    full_name = State()
+    phone = State()
+    choosing_day = State()
+    choosing_time = State()
+
+
 
 # ---------------------- Команды ----------------------
 
@@ -218,17 +243,6 @@ async def get_user_data(tg_id):
         return None
 
 # ---------------------- Запуск бота via webhook----------------------
-
-async def on_startup(app):
-    global db_pool
-    db_pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
-    scheduler.start()
-    await bot.set_webhook(WEBHOOK_URL)
-    Bot.set_current(bot)
-
-async def on_shutdown(app):
-    await bot.delete_webhook()
-    await bot.session.close()
 
 
 # aiohttp-приложение
