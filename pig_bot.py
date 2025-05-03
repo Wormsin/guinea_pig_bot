@@ -1,5 +1,5 @@
-import asyncio
 import asyncpg
+from aiohttp import web
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
@@ -209,5 +209,24 @@ async def on_startup(dp):
     db_pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
     scheduler.start()
 
+
+WEBHOOK_PATH = f"/webhook"
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Например: https://your-bot.onrender.com/webhook
+WEBAPP_HOST = "0.0.0.0"
+WEBAPP_PORT = int(os.getenv("PORT", default=8000))  # Render сам передаёт PORT
+
+async def on_startup_webhook(app):
+    await bot.set_webhook(WEBHOOK_URL)
+    scheduler.start()
+
+async def on_shutdown(app):
+    await bot.delete_webhook()
+
+app = web.Application()
+app.router.add_post(WEBHOOK_PATH, dp.router)
+
+app.on_startup.append(on_startup_webhook)
+app.on_shutdown.append(on_shutdown)
+
 if __name__ == '__main__':
-    executor.start_polling(dp, on_startup=on_startup)
+    web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT)
