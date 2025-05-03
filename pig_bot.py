@@ -203,33 +203,26 @@ async def get_user_data(tg_id):
             return {'full_name': row['full_name'], 'phone': row['phone'], 'schedule': row['schedule']}
         return None
 
-# ---------------------- Запуск ----------------------
-async def on_startup(dp):
-    global db_pool
-    db_pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
-    scheduler.start()
-
 # ---------------------- Запуск бота via webhook----------------------
 
-from aiogram import Bot, Dispatcher, types
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
+
 from aiohttp import web
-import asyncio
-import os
 
 API_TOKEN = os.getenv("API_TOKEN")
 WEBHOOK_HOST = os.getenv("WEBHOOK_HOST") 
 WEBHOOK_PATH = '/webhook'
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot, storage=MemoryStorage())
 
 async def on_startup(app):
+    global db_pool
+    db_pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
+    scheduler.start()
     await bot.set_webhook(WEBHOOK_URL)
 
 async def on_shutdown(app):
     await bot.delete_webhook()
+    await bot.session.close()
 
 
 async def handle_request(request):
