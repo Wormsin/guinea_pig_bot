@@ -25,27 +25,17 @@ CURATOR_ID = int(os.getenv("CURATOR_ID"))
 DATABASE_URL = os.getenv("DATABASE_URL")
 TEST_LINK = os.getenv("TEST_LINK")
 
-
-bot = None
-dp = None
+bot = Bot(token=API_TOKEN)
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
+scheduler = AsyncIOScheduler()
 db_pool = None
-scheduler = None
 
 
 async def on_startup(app):
-    global bot, dp, db_pool, scheduler
-
-    bot = Bot(token=os.getenv("API_TOKEN"))
-    dp = Dispatcher(bot, storage=MemoryStorage())
-
-    Bot.set_current(bot)
-    Dispatcher.set_current(dp)
-
+    global db_pool
     db_pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
-
-    scheduler = AsyncIOScheduler()
     scheduler.start()
-
     await bot.set_webhook(WEBHOOK_URL)
 
 async def on_shutdown(app):
@@ -55,9 +45,6 @@ async def on_shutdown(app):
         scheduler.shutdown()
 
 async def handle_request(request):
-    Bot.set_current(bot)
-    Dispatcher.set_current(dp)
-
     update = types.Update(**await request.json())
     await dp.process_update(update)
     return web.Response()
