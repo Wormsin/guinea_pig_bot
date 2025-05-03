@@ -11,8 +11,14 @@ from datetime import datetime, timedelta
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from dotenv import load_dotenv
 import os
+from aiohttp import web
 
 load_dotenv()
+
+
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST") 
+WEBHOOK_PATH = '/webhook'
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 API_TOKEN = os.getenv("API_TOKEN")
 CURATOR_ID = int(os.getenv("CURATOR_ID"))
@@ -205,20 +211,12 @@ async def get_user_data(tg_id):
 
 # ---------------------- Запуск бота via webhook----------------------
 
-
-from aiohttp import web
-
-API_TOKEN = os.getenv("API_TOKEN")
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST") 
-WEBHOOK_PATH = '/webhook'
-WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
-
-
 async def on_startup(app):
     global db_pool
     db_pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
     scheduler.start()
     await bot.set_webhook(WEBHOOK_URL)
+    Bot.set_current(bot)
 
 async def on_shutdown(app):
     await bot.delete_webhook()
