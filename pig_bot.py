@@ -37,6 +37,14 @@ class Form(StatesGroup):
     phone = State()
     choosing_day = State()
     choosing_time = State()
+    
+async def handle_request(request):
+    Bot.set_current(bot)
+    Dispatcher.set_current(dp)
+
+    update = types.Update(**await request.json())
+    await dp.process_update(update)
+    return web.Response()
 
 # ---------------------- Команды ----------------------
 
@@ -222,11 +230,6 @@ async def on_shutdown(app):
     await bot.delete_webhook()
     await bot.session.close()
 
-
-async def handle_request(request):
-    update = types.Update(**await request.json())
-    await dp.process_update(update)
-    return web.Response()
 
 # aiohttp-приложение
 app = web.Application()
